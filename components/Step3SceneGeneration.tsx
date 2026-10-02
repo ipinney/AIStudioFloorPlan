@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useRef, useEffect } from 'react';
-import { generateInteriorScene, suggestInteriorStyle, suggestStyleIdeas } from '../services/geminiService';
+import { generateInteriorScene, suggestInteriorStyle, suggestStyleIdeas } from '../services/api';
 // FIX: Corrected import path for i18n module.
 import { Language, getTranslation } from '../lib/i18n';
 import JSZip from 'jszip';

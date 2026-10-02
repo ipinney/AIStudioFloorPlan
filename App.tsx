@@ -2,17 +2,22 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import LanguageSelector from './components/LanguageSelector';
 import Stepper from './components/Stepper';
 import Step1Upload from './components/Step1Upload';
+import Step2Interview, { InterviewState } from './components/Step2Interview';
 import Step2Rendering from './components/Step2Rendering';
 import Step3SceneGeneration, { GeneratedScene, ScenePoint } from './components/Step3SceneGeneration';
 import Step4SceneEditing from './components/Step4SceneEditing';
 import Step5Presentation from './components/Step5Presentation';
 import { Language, getTranslation } from './lib/i18n';
+import { setActiveBrief } from './services/api';
+import type { DesignBrief } from './shared/brief';
 
-type AppState = 'language' | 'step1' | 'step2' | 'step3' | 'step4' | 'step5';
+type AppState = 'language' | 'step1' | 'interview' | 'step2' | 'step3' | 'step4' | 'step5';
+
+const freshInterview = (): InterviewState => ({ history: [], quickReplies: [], topic: 'household', complete: false });
 
 function App() {
     const [currentStep, setCurrentStep] = useState<AppState>('language');
@@ -22,6 +27,14 @@ function App() {
     const [style, setStyle] = useState<string>('');
     const [generatedScenes, setGeneratedScenes] = useState<GeneratedScene[]>([]);
     const [scenePoints, setScenePoints] = useState<ScenePoint[]>([]);
+    const [brief, setBrief] = useState<DesignBrief | null>(null);
+    const [interview, setInterview] = useState<InterviewState>(freshInterview);
+
+    useEffect(() => {
+        setActiveBrief(brief);
+        // A brief style from the interview seeds the scene style.
+        if (brief?.aesthetic.style) setStyle(prev => prev || brief.aesthetic.style!);
+    }, [brief]);
 
     const handleLanguageSelect = (selectedLanguage: Language) => {
         setLanguage(selectedLanguage);
@@ -34,11 +47,13 @@ function App() {
         setStyle('');
         setGeneratedScenes([]);
         setScenePoints([]);
+        setBrief(null);
+        setInterview(freshInterview());
     };
 
     const handleRenderingComplete = (renderedImageUrl: string) => {
         setRenderedImage(renderedImageUrl);
-        setStyle('');
+        setStyle(brief?.aesthetic.style || '');
         setGeneratedScenes([]);
         setScenePoints([]);
     };
@@ -46,7 +61,10 @@ function App() {
     const goToNextStep = () => {
         switch (currentStep) {
             case 'step1':
-                if (uploadedImage) setCurrentStep('step2');
+                if (uploadedImage) setCurrentStep('interview');
+                break;
+            case 'interview':
+                setCurrentStep('step2');
                 break;
             case 'step2':
                 if (renderedImage) setCurrentStep('step3');
@@ -64,8 +82,11 @@ function App() {
 
     const goToPrevStep = () => {
         switch (currentStep) {
-            case 'step2':
+            case 'interview':
                 setCurrentStep('step1');
+                break;
+            case 'step2':
+                setCurrentStep('interview');
                 break;
             case 'step3':
                 setCurrentStep('step2');
@@ -88,6 +109,8 @@ function App() {
         setStyle('');
         setGeneratedScenes([]);
         setScenePoints([]);
+        setBrief(null);
+        setInterview(freshInterview());
     };
 
     const changeLanguage = () => {
@@ -97,10 +120,11 @@ function App() {
     const getStepNumber = (): number => {
         switch (currentStep) {
             case 'step1': return 1;
-            case 'step2': return 2;
-            case 'step3': return 3;
-            case 'step4': return 4;
-            case 'step5': return 5;
+            case 'interview': return 2;
+            case 'step2': return 3;
+            case 'step3': return 4;
+            case 'step4': return 5;
+            case 'step5': return 6;
             default: return 1;
         }
     };
@@ -108,6 +132,8 @@ function App() {
     const canGoNext = (): boolean => {
         switch (currentStep) {
             case 'step1': return !!uploadedImage;
+            // The interview can be skipped; a partial brief still helps.
+            case 'interview': return true;
             case 'step2': return !!renderedImage;
             case 'step3': return generatedScenes.length > 0 && !generatedScenes.some(s => s.isLoading);
             case 'step4': return generatedScenes.length > 0 && !generatedScenes.some(s => s.isLoading);
@@ -153,7 +179,7 @@ function App() {
                     </header>
 
                     {/* Stepper */}
-                    <Stepper currentStep={getStepNumber()} maxStep={5} language={language} />
+                    <Stepper currentStep={getStepNumber()} maxStep={6} language={language} />
 
                     {/* Content Area */}
                     <main className="mb-8 min-h-[50vh]">
@@ -165,6 +191,17 @@ function App() {
                             />
                         )}
                         
+                        {currentStep === 'interview' && (
+                            <Step2Interview
+                                planImage={uploadedImage}
+                                language={language}
+                                brief={brief}
+                                onBriefChange={setBrief}
+                                interview={interview}
+                                onInterviewChange={setInterview}
+                            />
+                        )}
+
                         {currentStep === 'step2' && (
                             <Step2Rendering 
                                 originalImage={uploadedImage}

@@ -15,10 +15,11 @@ interface StepperProps {
 const Stepper: React.FC<StepperProps> = ({ currentStep, maxStep, language }) => {
     const steps = [
         { id: 1, labelKey: 'stepUpload' as const },
-        { id: 2, labelKey: 'stepRendering' as const },
-        { id: 3, labelKey: 'stepGeneration' as const },
-        { id: 4, labelKey: 'step4SceneEditing' as const },
-        { id: 5, labelKey: 'step5Presentation' as const }
+        { id: 2, labelKey: 'stepInterview' as const },
+        { id: 3, labelKey: 'stepRendering' as const },
+        { id: 4, labelKey: 'stepGeneration' as const },
+        { id: 5, labelKey: 'step4SceneEditing' as const },
+        { id: 6, labelKey: 'step5Presentation' as const }
     ];
 
     return (

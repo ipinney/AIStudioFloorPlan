@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useRef, ChangeEvent } from 'react';
-import { generateAIRendering, suggestPlanImprovements } from '../services/geminiService';
+import { generateAIRendering, suggestPlanImprovements } from '../services/api';
 import DrawingCanvas, { DrawingCanvasRef } from './DrawingCanvas';
 // FIX: Corrected import path for i18n module.
 import { Language, getTranslation } from '../lib/i18n';

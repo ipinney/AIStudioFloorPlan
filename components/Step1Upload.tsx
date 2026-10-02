@@ -12,6 +12,25 @@ interface Step1UploadProps {
     language: Language;
 }
 
+// Phone photos of plans are often 4000px+; the models gain nothing past ~2048px
+// and Claude rejects very large images.
+const MAX_SIDE = 2048;
+async function downscale(dataUrl: string): Promise<string> {
+    const img = new Image();
+    await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = dataUrl; });
+    const scale = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+    if (scale === 1 && dataUrl.length < 4_000_000) return dataUrl;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return dataUrl;
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.92);
+}
+
 const Step1Upload: React.FC<Step1UploadProps> = ({ onImageUpload, uploadedImage, language }) => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -19,8 +38,8 @@ const Step1Upload: React.FC<Step1UploadProps> = ({ onImageUpload, uploadedImage,
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onloadend = () => {
-                const imageUrl = reader.result as string;
+            reader.onloadend = async () => {
+                const imageUrl = await downscale(reader.result as string);
                 onImageUpload(imageUrl);
                 
                 // Show analysis indicator

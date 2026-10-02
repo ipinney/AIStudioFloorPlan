@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { generatePresentationText, PresentationText } from '../services/geminiService';
+import { generatePresentationText, PresentationText } from '../services/api';
 import { generateSlides, ColorTheme, themes } from '../lib/presentationUtils';
 import { Language, getTranslation } from '../lib/i18n';
 import type { GeneratedScene } from './Step3SceneGeneration';

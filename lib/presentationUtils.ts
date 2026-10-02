@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import { PresentationText } from '../services/geminiService';
+import { PresentationText } from '../services/api';
 import { GeneratedScene } from '../components/Step3SceneGeneration';
 import { Language, getTranslation } from './i18n';
 

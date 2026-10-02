@@ -25,6 +25,7 @@ const translations = {
     
     // Stepper.tsx
     stepUpload: { en: 'Upload', zh: '上傳' },
+    stepInterview: { en: 'Interview', zh: '需求訪談' },
     stepRendering: { en: 'Rendering', zh: '渲染' },
     stepGeneration: { en: 'Generation', zh: '生成' },
     step4SceneEditing: { en: 'Edit Scenes', zh: '編輯場景' },
@@ -43,8 +44,26 @@ const translations = {
     reuploadButton: { en: 'Select a Different Plan', zh: '選擇其他平面圖' },
     analyzingIndicator: { en: 'Analyzing floor plan...', zh: '正在分析平面圖...' },
 
+    // Step2Interview.tsx
+    interviewTitle: { en: 'Step 2: Meet Your Architect', zh: '步驟 2：與建築師訪談' },
+    interviewDescription: { en: 'A few questions about how you live, the way an architect would ask them. Your answers shape every rendering that follows.', zh: '像建築師一樣，先了解您的生活方式。您的回答將決定後續的每一張渲染圖。' },
+    interviewPlaceholder: { en: 'Type your answer… (Enter to send)', zh: '輸入您的回答…（按 Enter 送出）' },
+    architectThinking: { en: 'The architect is thinking…', zh: '建築師思考中…' },
+    send: { en: 'Send', zh: '送出' },
+    designBrief: { en: 'Design Brief', zh: '設計需求書' },
+    architectConcerns: { en: 'Things to talk through', zh: '需要討論的問題' },
+    wrapUp: { en: "That's enough questions, summarize and let's design", zh: '問題夠了，請總結並開始設計' },
+    wrapUpMessage: { en: "Let's wrap up. Please summarize the brief so I can confirm it.", zh: '我們來總結吧，請整理設計需求讓我確認。' },
+    topic_household: { en: 'Household', zh: '家庭成員' },
+    topic_lifestyle: { en: 'Daily life', zh: '生活習慣' },
+    topic_site: { en: 'Site', zh: '基地' },
+    topic_budget: { en: 'Budget', zh: '預算' },
+    topic_aesthetic: { en: 'Look & feel', zh: '風格' },
+    topic_rooms: { en: 'Rooms', zh: '空間需求' },
+    topic_review: { en: 'Review', zh: '確認' },
+
     // Step2Rendering.tsx
-    step2Title: { en: 'Step 2: Clean & Render Floor Plan', zh: '步驟 2：清理並渲染平面圖' },
+    step2Title: { en: 'Step 3: Clean & Render Floor Plan', zh: '步驟 3：清理並渲染平面圖' },
     step2Description: { en: 'The AI will remove text and annotations, then create a clean 3D top-down rendering. You can make corrections if needed.', zh: 'AI 將移除文字和標註，並生成乾淨的 3D 俯視渲染圖。如果需要，您可以進行修正。' },
     originalPlanReference: { en: 'Original Plan Reference', zh: '原始平面圖參考' },
     pleaseUploadFirst: { en: 'Please upload a plan first', zh: '請先上傳平面圖' },
@@ -83,7 +102,7 @@ const translations = {
     backToSelectionButton: { en: 'Back to Selection', zh: '返回選擇' },
 
     // Step3SceneGeneration.tsx
-    step3Title: { en: 'Step 3: Generate Interior Scenes', zh: '步驟 3：生成室內場景' },
+    step3Title: { en: 'Step 4: Generate Interior Scenes', zh: '步驟 4：生成室內場景' },
     step3Description: { en: 'Select viewpoints on the plan and choose a design style. The AI will generate photorealistic scenes from those perspectives.', zh: '在平面圖上選擇視角並選擇設計風格。AI 將從這些視角生成照片級場景。' },
     maxViewpointsAlert: { en: 'You can select a maximum of 8 viewpoints.', zh: '您最多可以選擇 8 個視角。' },
     styleInputPlaceholder: { en: 'Enter a style (e.g., Modern Minimalist)', zh: '輸入風格（例如：現代極簡）' },
@@ -107,7 +126,7 @@ const translations = {
     loadingStyleIdeas: { en: 'Loading style ideas...', zh: '正在載入風格靈感...' },
 
     // Step4SceneEditing.tsx
-    step4Title: { en: 'Step 4: Edit & Refine Scenes', zh: '步驟 4：編輯與優化場景' },
+    step4Title: { en: 'Step 5: Edit & Refine Scenes', zh: '步驟 5：編輯與優化場景' },
     step4Description: { en: 'Fine-tune your scenes here. Please note: content editing and lighting adjustments are separate steps. First, use a text prompt to modify content and click "Apply". Once that is done, you can adjust the lighting and click "Apply" again.', zh: '在此微調您的場景。請注意：內容編輯與燈光調整是分開的步驟。請先使用提示詞修改內容並點擊「套用」，完成後再調整燈光並再次點擊「套用」。' },
     editPromptPlaceholder: { en: 'e.g., "make the sofa blue", "add this chair"', zh: '例如：「把沙發換成藍色」、「加入這張椅子」' },
     applyEdit: { en: 'Apply', zh: '套用' },
@@ -118,7 +137,7 @@ const translations = {
     clearObject: { en: 'Clear Object', zh: '清除物件' },
 
     // Step5Presentation.tsx (was Step4)
-    step5Title: { en: 'Step 5: Finalize Your Design Presentation', zh: '步驟 5：完成您的設計簡報' },
+    step5Title: { en: 'Step 6: Finalize Your Design Presentation', zh: '步驟 6：完成您的設計簡報' },
     step5Description: { en: 'Follow the steps below to customize and download your presentation. You can edit text on any slide.', zh: '依照以下步驟來自訂和下載您的簡報。您可以編輯任何投影片上的文字。' },
     generatingPresentation: { en: 'Generating presentation...', zh: '正在生成簡報...' },
     presentationFailed: { en: 'Failed to generate presentation. Please try again.', zh: '簡報生成失敗，請重試。' },

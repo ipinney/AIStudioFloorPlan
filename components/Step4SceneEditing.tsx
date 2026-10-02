@@ -4,7 +4,7 @@
  */
 import React, { useState, useRef, ChangeEvent } from 'react';
 import { GeneratedScene } from './Step3SceneGeneration';
-import { editInteriorScene, imageSrcToBase64 } from '../services/geminiService';
+import { editInteriorScene } from '../services/api';
 import { Language, getTranslation } from '../lib/i18n';
 import JSZip from 'jszip';
 import DrawingCanvas, { DrawingCanvasRef } from './DrawingCanvas';
@@ -182,9 +182,7 @@ const Step4SceneEditing: React.FC<Step4SceneEditingProps> = ({ scenes, onScenesC
         
         try {
             const baseImageSrc = scenes[sceneIndex].url;
-            const objectImageBase64 = objectImageDataUrl ? await imageSrcToBase64(objectImageDataUrl) : undefined;
-            
-            const newUrl = await editInteriorScene(baseImageSrc, prompt, mode, temperature, maskBase64, objectImageBase64);
+            const newUrl = await editInteriorScene(baseImageSrc, prompt, mode, temperature, maskBase64, objectImageDataUrl ?? undefined);
 
             onScenesChange(prev => prev.map(s => {
                 if (s.viewIndex === viewIndex) {
