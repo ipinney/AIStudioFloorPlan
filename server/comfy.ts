@@ -23,7 +23,9 @@ const MODELS = {
     vae: 'qwen_image_vae.safetensors',
 };
 
-const NEGATIVE = 'blurry, lowres, deformed, distorted perspective, warped walls, cartoon, watermark, text, labels, people';
+// The Lightning LoRAs run at cfg 1.0, where the negative prompt has no effect;
+// anything to avoid has to be steered from the positive prompt instead.
+const NEGATIVE = '';
 
 type Node = { class_type: string; inputs: Record<string, unknown> };
 type Workflow = Record<string, Node>;

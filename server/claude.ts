@@ -98,7 +98,7 @@ const ImagePromptSchema = z.object({
     prompt: z.string().describe('The prompt, 60 to 180 words'),
 });
 
-const SCENE_WRITER_SYSTEM = `You write prompts for Qwen-Image, a text-to-image model. Write a dense, concrete photographic description: camera and lens, light, the room's layout as seen from the camera, materials, furniture, decor. Describe only what is visible. Never ask for text, labels or watermarks.`;
+const SCENE_WRITER_SYSTEM = `You write prompts for Qwen-Image, a text-to-image model. Write a dense, concrete photographic description: camera and lens, light, the room's layout as seen from the camera, materials, furniture, decor. Describe only what is visible. Always end with: "The room is unoccupied, no people." Never ask for text, labels or watermarks.`;
 
 const EDIT_WRITER_SYSTEM = `You write instructions for Qwen-Image-Edit, an instruction-following image editor that receives the image(s) and your text. Write imperative edit instructions ("Convert…", "Replace…", "Add…"), say explicitly what must stay unchanged (camera angle, walls, windows, doors, layout), and be concrete about materials, colors and furniture. Refer to input images as "image 1" and "image 2". Never ask for text, labels or watermarks.`;
 
