@@ -127,7 +127,8 @@ def add_room_lights(floors, ceiling, light):
         l = bpy.context.active_object
         l.data.shape = 'RECTANGLE'
         l.data.size, l.data.size_y = w * 0.6, d * 0.6
-        l.data.energy = (60 if day else 160) * w * d
+        # Watts per square meter of room: a gentle fill by day, the main source at night.
+        l.data.energy = (5 if day else 18) * w * d
         l.data.color = color
 
 
