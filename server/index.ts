@@ -9,6 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import * as claude from './claude';
 import { comfyHealth, editImage, textToImage } from './comfy';
+import { describeView, layoutToText, type PlanGeometry } from '../shared/geometry';
 
 const app = express();
 app.use(express.json({ limit: '60mb' }));
@@ -33,7 +34,8 @@ app.post('/api/interview', route(body =>
 // with one only the painted area changes.
 app.post('/api/render-plan', route(async body => {
     const count = Math.min(Math.max(Number(body.count) || 1, 1), 4);
-    const prompt = await claude.planRenderingPrompt(body.image, body.brief ?? null, body.instruction);
+    const geometry: PlanGeometry | null = body.geometry ?? null;
+    const prompt = await claude.planRenderingPrompt(body.image, body.brief ?? null, body.instruction, geometry ? layoutToText(geometry) : undefined);
     const images: string[] = [];
     // Sequential: the GPU runs one job at a time anyway, and this keeps the queue fair.
     for (let i = 0; i < count; i++) {
@@ -42,8 +44,18 @@ app.post('/api/render-plan', route(async body => {
     return { images, prompt };
 }));
 
+app.post('/api/geometry', route(async body => ({
+    geometry: await claude.extractGeometry(body.gridImage, Number(body.width), Number(body.height)),
+})));
+
 app.post('/api/scene', route(async body => {
+    // With checked geometry and a viewpoint in plan pixels, state the view as measured facts.
+    const geometry: PlanGeometry | null = body.geometry ?? null;
+    const viewFacts = geometry && body.planPoint
+        ? describeView(geometry, body.planPoint, Number(body.heading ?? 0) + Number(body.camera?.rotation ?? 0))
+        : undefined;
     const prompt = await claude.scenePrompt({
+        viewFacts,
         markedPlan: body.markedPlan, viewIndex: body.viewIndex, brief: body.brief ?? null, style: body.style ?? '',
         camera: body.camera ?? { rotation: 0, tilt: 0, zoom: 1 }, mode: body.mode ?? 'day', temperature: body.temperature ?? 5500,
     });

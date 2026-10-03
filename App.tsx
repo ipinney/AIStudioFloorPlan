@@ -7,15 +7,17 @@ import LanguageSelector from './components/LanguageSelector';
 import Stepper from './components/Stepper';
 import Step1Upload from './components/Step1Upload';
 import Step2Interview, { InterviewState } from './components/Step2Interview';
+import StepPlanGeometry from './components/StepPlanGeometry';
 import Step2Rendering from './components/Step2Rendering';
 import Step3SceneGeneration, { GeneratedScene, ScenePoint } from './components/Step3SceneGeneration';
 import Step4SceneEditing from './components/Step4SceneEditing';
 import Step5Presentation from './components/Step5Presentation';
 import { Language, getTranslation } from './lib/i18n';
-import { setActiveBrief } from './services/api';
+import { setActiveBrief, setActiveGeometry } from './services/api';
 import type { DesignBrief } from './shared/brief';
+import type { PlanGeometry } from './shared/geometry';
 
-type AppState = 'language' | 'step1' | 'interview' | 'step2' | 'step3' | 'step4' | 'step5';
+type AppState = 'language' | 'step1' | 'interview' | 'geometry' | 'step2' | 'step3' | 'step4' | 'step5';
 
 const freshInterview = (): InterviewState => ({ history: [], quickReplies: [], topic: 'household', complete: false });
 
@@ -29,6 +31,9 @@ function App() {
     const [scenePoints, setScenePoints] = useState<ScenePoint[]>([]);
     const [brief, setBrief] = useState<DesignBrief | null>(null);
     const [interview, setInterview] = useState<InterviewState>(freshInterview);
+    const [geometry, setGeometry] = useState<PlanGeometry | null>(null);
+
+    useEffect(() => setActiveGeometry(geometry), [geometry]);
 
     useEffect(() => {
         setActiveBrief(brief);
@@ -49,6 +54,7 @@ function App() {
         setScenePoints([]);
         setBrief(null);
         setInterview(freshInterview());
+        setGeometry(null);
     };
 
     const handleRenderingComplete = (renderedImageUrl: string) => {
@@ -64,6 +70,9 @@ function App() {
                 if (uploadedImage) setCurrentStep('interview');
                 break;
             case 'interview':
+                setCurrentStep('geometry');
+                break;
+            case 'geometry':
                 setCurrentStep('step2');
                 break;
             case 'step2':
@@ -85,8 +94,11 @@ function App() {
             case 'interview':
                 setCurrentStep('step1');
                 break;
-            case 'step2':
+            case 'geometry':
                 setCurrentStep('interview');
+                break;
+            case 'step2':
+                setCurrentStep('geometry');
                 break;
             case 'step3':
                 setCurrentStep('step2');
@@ -111,6 +123,7 @@ function App() {
         setScenePoints([]);
         setBrief(null);
         setInterview(freshInterview());
+        setGeometry(null);
     };
 
     const changeLanguage = () => {
@@ -121,10 +134,11 @@ function App() {
         switch (currentStep) {
             case 'step1': return 1;
             case 'interview': return 2;
-            case 'step2': return 3;
-            case 'step3': return 4;
-            case 'step4': return 5;
-            case 'step5': return 6;
+            case 'geometry': return 3;
+            case 'step2': return 4;
+            case 'step3': return 5;
+            case 'step4': return 6;
+            case 'step5': return 7;
             default: return 1;
         }
     };
@@ -134,6 +148,7 @@ function App() {
             case 'step1': return !!uploadedImage;
             // The interview can be skipped; a partial brief still helps.
             case 'interview': return true;
+            case 'geometry': return true;
             case 'step2': return !!renderedImage;
             case 'step3': return generatedScenes.length > 0 && !generatedScenes.some(s => s.isLoading);
             case 'step4': return generatedScenes.length > 0 && !generatedScenes.some(s => s.isLoading);
@@ -179,7 +194,7 @@ function App() {
                     </header>
 
                     {/* Stepper */}
-                    <Stepper currentStep={getStepNumber()} maxStep={6} language={language} />
+                    <Stepper currentStep={getStepNumber()} maxStep={7} language={language} />
 
                     {/* Content Area */}
                     <main className="mb-8 min-h-[50vh]">
@@ -199,6 +214,15 @@ function App() {
                                 onBriefChange={setBrief}
                                 interview={interview}
                                 onInterviewChange={setInterview}
+                            />
+                        )}
+
+                        {currentStep === 'geometry' && (
+                            <StepPlanGeometry
+                                planImage={uploadedImage}
+                                language={language}
+                                geometry={geometry}
+                                onGeometryChange={setGeometry}
                             />
                         )}
 

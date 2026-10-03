@@ -26,6 +26,7 @@ const translations = {
     // Stepper.tsx
     stepUpload: { en: 'Upload', zh: '上傳' },
     stepInterview: { en: 'Interview', zh: '需求訪談' },
+    stepGeometry: { en: 'Layout', zh: '格局' },
     stepRendering: { en: 'Rendering', zh: '渲染' },
     stepGeneration: { en: 'Generation', zh: '生成' },
     step4SceneEditing: { en: 'Edit Scenes', zh: '編輯場景' },
@@ -62,8 +63,36 @@ const translations = {
     topic_rooms: { en: 'Rooms', zh: '空間需求' },
     topic_review: { en: 'Review', zh: '確認' },
 
+    // StepPlanGeometry.tsx
+    geometryTitle: { en: 'Step 3: Check the Layout', zh: '步驟 3：確認格局' },
+    geometryDescription: { en: 'The architect reads your plan into walls, doors, windows and rooms. Fix anything it got wrong and set the scale; every rendering and the 3D walkthrough are built from this.', zh: '建築師會將平面圖轉成牆、門、窗與房間。請修正錯誤並設定比例，後續的渲染與 3D 漫遊都以此為準。' },
+    readPlan: { en: 'Read my plan', zh: '讀取平面圖' },
+    rereadPlan: { en: 'Read again', zh: '重新讀取' },
+    readingPlan: { en: 'Reading the plan… (about a minute)', zh: '讀取中…（約一分鐘）' },
+    geometryOptional: { en: 'Optional, but it keeps rooms in place in every view.', zh: '可略過，但能讓各視角的房間位置一致。' },
+    toolSelect: { en: 'Select / move', zh: '選取／移動' },
+    toolWall: { en: 'Add wall', zh: '加牆' },
+    toolDoor: { en: 'Add door', zh: '加門' },
+    toolWindow: { en: 'Add window', zh: '加窗' },
+    toolCalibrate: { en: 'Set scale', zh: '設定比例' },
+    toolHint_select: { en: 'Click a wall, opening, room or furniture to select it. Drag a white handle to move a corner.', zh: '點選牆、開口、房間或家具；拖曳白色控制點移動牆角。' },
+    toolHint_wall: { en: 'Click the start and end of the new wall.', zh: '點選新牆的起點與終點。' },
+    toolHint_door: { en: 'Click on a wall where the door goes.', zh: '點選要加門的牆。' },
+    toolHint_window: { en: 'Click on a wall where the window goes.', zh: '點選要加窗的牆。' },
+    toolHint_calibrate: { en: 'Click both ends of something whose length you know, like a wall with a printed dimension.', zh: '點選已知長度物件的兩端，例如標有尺寸的牆。' },
+    calibratePrompt: { en: 'How long is that, in meters?', zh: '這段長度是多少公尺？' },
+    delete: { en: 'Delete', zh: '刪除' },
+    undo: { en: 'Undo', zh: '復原' },
+    scale: { en: 'Scale', zh: '比例' },
+    scaleCalibrated: { en: 'Set by you', zh: '已手動設定' },
+    scaleFromDimensions: { en: 'Read from printed dimensions', zh: '由圖上尺寸讀取' },
+    scaleEstimated: { en: 'Estimated from door widths; set it for accurate sizes', zh: '依門寬估計，建議手動設定' },
+    widthMeters: { en: 'Width (m)', zh: '寬度（公尺）' },
+    roomSchedule: { en: 'Rooms', zh: '房間面積' },
+    pleaseCheck: { en: 'Please check', zh: '請確認' },
+
     // Step2Rendering.tsx
-    step2Title: { en: 'Step 3: Clean & Render Floor Plan', zh: '步驟 3：清理並渲染平面圖' },
+    step2Title: { en: 'Step 4: Clean & Render Floor Plan', zh: '步驟 4：清理並渲染平面圖' },
     step2Description: { en: 'The AI will remove text and annotations, then create a clean 3D top-down rendering. You can make corrections if needed.', zh: 'AI 將移除文字和標註，並生成乾淨的 3D 俯視渲染圖。如果需要，您可以進行修正。' },
     originalPlanReference: { en: 'Original Plan Reference', zh: '原始平面圖參考' },
     pleaseUploadFirst: { en: 'Please upload a plan first', zh: '請先上傳平面圖' },
@@ -102,7 +131,7 @@ const translations = {
     backToSelectionButton: { en: 'Back to Selection', zh: '返回選擇' },
 
     // Step3SceneGeneration.tsx
-    step3Title: { en: 'Step 4: Generate Interior Scenes', zh: '步驟 4：生成室內場景' },
+    step3Title: { en: 'Step 5: Generate Interior Scenes', zh: '步驟 5：生成室內場景' },
     step3Description: { en: 'Select viewpoints on the plan and choose a design style. The AI will generate photorealistic scenes from those perspectives.', zh: '在平面圖上選擇視角並選擇設計風格。AI 將從這些視角生成照片級場景。' },
     maxViewpointsAlert: { en: 'You can select a maximum of 8 viewpoints.', zh: '您最多可以選擇 8 個視角。' },
     styleInputPlaceholder: { en: 'Enter a style (e.g., Modern Minimalist)', zh: '輸入風格（例如：現代極簡）' },
@@ -126,7 +155,7 @@ const translations = {
     loadingStyleIdeas: { en: 'Loading style ideas...', zh: '正在載入風格靈感...' },
 
     // Step4SceneEditing.tsx
-    step4Title: { en: 'Step 5: Edit & Refine Scenes', zh: '步驟 5：編輯與優化場景' },
+    step4Title: { en: 'Step 6: Edit & Refine Scenes', zh: '步驟 6：編輯與優化場景' },
     step4Description: { en: 'Fine-tune your scenes here. Please note: content editing and lighting adjustments are separate steps. First, use a text prompt to modify content and click "Apply". Once that is done, you can adjust the lighting and click "Apply" again.', zh: '在此微調您的場景。請注意：內容編輯與燈光調整是分開的步驟。請先使用提示詞修改內容並點擊「套用」，完成後再調整燈光並再次點擊「套用」。' },
     editPromptPlaceholder: { en: 'e.g., "make the sofa blue", "add this chair"', zh: '例如：「把沙發換成藍色」、「加入這張椅子」' },
     applyEdit: { en: 'Apply', zh: '套用' },
@@ -137,7 +166,7 @@ const translations = {
     clearObject: { en: 'Clear Object', zh: '清除物件' },
 
     // Step5Presentation.tsx (was Step4)
-    step5Title: { en: 'Step 6: Finalize Your Design Presentation', zh: '步驟 6：完成您的設計簡報' },
+    step5Title: { en: 'Step 7: Finalize Your Design Presentation', zh: '步驟 7：完成您的設計簡報' },
     step5Description: { en: 'Follow the steps below to customize and download your presentation. You can edit text on any slide.', zh: '依照以下步驟來自訂和下載您的簡報。您可以編輯任何投影片上的文字。' },
     generatingPresentation: { en: 'Generating presentation...', zh: '正在生成簡報...' },
     presentationFailed: { en: 'Failed to generate presentation. Please try again.', zh: '簡報生成失敗，請重試。' },

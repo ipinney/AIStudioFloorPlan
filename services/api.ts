@@ -7,12 +7,19 @@
 import type { GeneratedScene } from '../components/Step3SceneGeneration';
 import type { Language } from '../lib/i18n';
 import type { DesignBrief, InterviewMessage, InterviewTurn } from '../shared/brief';
+import type { PlanGeometry } from '../shared/geometry';
 
 // The design brief from the interview step. App keeps this in sync so every
 // generation call is grounded in how the household actually lives.
 let activeBrief: DesignBrief | null = null;
 export function setActiveBrief(brief: DesignBrief | null) {
     activeBrief = brief;
+}
+
+// The checked plan geometry, once the homeowner has confirmed it.
+let activeGeometry: PlanGeometry | null = null;
+export function setActiveGeometry(geometry: PlanGeometry | null) {
+    activeGeometry = geometry;
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
@@ -51,6 +58,42 @@ export async function interviewTurn(
     return post('interview', { planImage: await toDataUrl(planImage), history, brief, language });
 }
 
+// --- Plan geometry -------------------------------------------------------------
+
+/** Draws a labelled pixel grid over the plan so Claude can read coordinates precisely. */
+async function gridOverlay(planImageSrc: string): Promise<{ image: string; width: number; height: number }> {
+    const img = new Image();
+    await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = planImageSrc; });
+    const width = img.naturalWidth, height = img.naturalHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not get canvas context');
+    ctx.drawImage(img, 0, 0);
+    const step = Math.max(50, Math.round(Math.max(width, height) / 20 / 50) * 50);
+    ctx.font = `${Math.max(11, Math.round(step / 5))}px sans-serif`;
+    for (let x = 0; x <= width; x += step) {
+        ctx.strokeStyle = x % (step * 2) === 0 ? 'rgba(0, 120, 255, 0.45)' : 'rgba(0, 120, 255, 0.2)';
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+        ctx.fillStyle = 'rgba(0, 90, 220, 0.9)';
+        ctx.fillText(String(x), x + 2, 12);
+    }
+    for (let y = 0; y <= height; y += step) {
+        ctx.strokeStyle = y % (step * 2) === 0 ? 'rgba(0, 120, 255, 0.45)' : 'rgba(0, 120, 255, 0.2)';
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+        ctx.fillStyle = 'rgba(0, 90, 220, 0.9)';
+        ctx.fillText(String(y), 2, y - 2);
+    }
+    return { image: canvas.toDataURL('image/jpeg', 0.9), width, height };
+}
+
+export async function extractPlanGeometry(planImageSrc: string): Promise<PlanGeometry> {
+    const grid = await gridOverlay(await toDataUrl(planImageSrc));
+    const { geometry } = await post<{ geometry: PlanGeometry }>('geometry', { gridImage: grid.image, width: grid.width, height: grid.height });
+    return geometry;
+}
+
 // --- Plan rendering ----------------------------------------------------------
 
 /**
@@ -69,6 +112,7 @@ export async function generateAIRendering(
         mask: maskToDataUrl(maskBase64),
         count: numberOfImages,
         brief: activeBrief,
+        geometry: activeGeometry,
     });
     return images;
 }
@@ -118,11 +162,16 @@ export async function generateInteriorScene(
     viewIndex: number,
     camera: { rotation: number; tilt: number; zoom: number; },
     mode: 'day' | 'night',
-    temperature: number
+    temperature: number,
+    viewpoint?: { u: number; v: number; heading?: number }
 ): Promise<string> {
     const markedPlan = await markViewpoint(planImageSrc, pointX, pointY, viewIndex);
+    const planPoint = activeGeometry && viewpoint
+        ? { x: viewpoint.u * activeGeometry.image.width, y: viewpoint.v * activeGeometry.image.height }
+        : undefined;
     const { image } = await post<{ image: string }>('scene', {
         markedPlan, viewIndex, style, camera, mode, temperature, brief: activeBrief,
+        geometry: planPoint ? activeGeometry : undefined, planPoint, heading: viewpoint?.heading,
     });
     return image;
 }

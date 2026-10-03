@@ -9,9 +9,15 @@ import { Language, getTranslation } from '../lib/i18n';
 import JSZip from 'jszip';
 import InteractiveSceneModal from './InteractiveSceneModal';
 
+/**
+ * A viewpoint in normalized plan coordinates (0..1 across the image), so the
+ * same point maps onto the rendered plan, the checked geometry and the 3D view.
+ * heading: degrees clockwise from "up the plan"; undefined lets Claude choose.
+ */
 export interface ScenePoint {
-    x: number;
-    y: number;
+    u: number;
+    v: number;
+    heading?: number;
 }
 
 export interface GeneratedScene {
@@ -110,20 +116,39 @@ const Step3SceneGeneration: React.FC<Step3SceneGenerationProps> = ({
         return () => observer.disconnect();
     };
 
-    const addScenePoint = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Press to place a viewpoint, drag to aim it; a plain click leaves the aim to Claude.
+    const dragStart = useRef<{ x: number; y: number } | null>(null);
+    const [dragNow, setDragNow] = useState<{ x: number; y: number } | null>(null);
+
+    const canvasPos = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        const rect = canvasRef.current!.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
+
+    const startScenePoint = (e: React.MouseEvent<HTMLCanvasElement>) => {
         if (scenePoints.length >= 8) {
             alert(getTranslation('maxViewpointsAlert', language));
             return;
         }
-        
+        if (!canvasRef.current) return;
+        dragStart.current = canvasPos(e);
+        setDragNow(dragStart.current);
+    };
+
+    const moveScenePoint = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (dragStart.current) setDragNow(canvasPos(e));
+    };
+
+    const finishScenePoint = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        const start = dragStart.current;
         const canvas = canvasRef.current;
-        if (!canvas) return;
-        
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        
-        onScenePointsChange(prev => [...prev, { x, y }]);
+        dragStart.current = null;
+        setDragNow(null);
+        if (!start || !canvas) return;
+        const end = canvasPos(e);
+        const dx = end.x - start.x, dy = end.y - start.y;
+        const heading = Math.hypot(dx, dy) > 12 ? (Math.atan2(dx, -dy) * 180) / Math.PI : undefined;
+        onScenePointsChange(prev => [...prev, { u: start.x / canvas.width, v: start.y / canvas.height, heading }]);
     };
 
     const drawPoints = () => {
@@ -134,8 +159,33 @@ const Step3SceneGeneration: React.FC<Step3SceneGenerationProps> = ({
         if (!ctx) return;
         
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        scenePoints.forEach((point, index) => {
+
+        const arrow = (x: number, y: number, headingDeg: number) => {
+            const r = (headingDeg * Math.PI) / 180;
+            const tx = x + Math.sin(r) * 28, ty = y - Math.cos(r) * 28;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(tx, ty);
+            ctx.strokeStyle = 'rgba(220, 38, 38, 0.9)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            // View cone, roughly a 24mm lens.
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.arc(x, y, 40, r - Math.PI / 2 - 0.65, r - Math.PI / 2 + 0.65);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(220, 38, 38, 0.15)';
+            ctx.fill();
+        };
+
+        if (dragStart.current && dragNow) {
+            const dx = dragNow.x - dragStart.current.x, dy = dragNow.y - dragStart.current.y;
+            if (Math.hypot(dx, dy) > 12) arrow(dragStart.current.x, dragStart.current.y, (Math.atan2(dx, -dy) * 180) / Math.PI);
+        }
+
+        scenePoints.forEach((p, index) => {
+            const point = { x: p.u * canvas.width, y: p.v * canvas.height };
+            if (p.heading !== undefined) arrow(point.x, point.y, p.heading);
             ctx.beginPath();
             ctx.arc(point.x, point.y, 8, 0, 2 * Math.PI);
             ctx.fillStyle = 'rgba(220, 38, 38, 0.8)';
@@ -196,22 +246,18 @@ const Step3SceneGeneration: React.FC<Step3SceneGenerationProps> = ({
             const image = imageRef.current;
             if (!image) throw new Error('Reference image for canvas is not available');
 
-            const scaleX = image.naturalWidth / image.clientWidth;
-            const scaleY = image.naturalHeight / image.clientHeight;
-            const scaledX = point.x * scaleX;
-            const scaledY = point.y * scaleY;
-
             const sceneToUpdate = scenes[sceneToUpdateIndex];
 
             const newImageUrl = await generateInteriorScene(
                 finalPlanImage,
-                scaledX,
-                scaledY,
+                point.u * image.naturalWidth,
+                point.v * image.naturalHeight,
                 style,
                 viewIndex,
                 newCamera,
                 sceneToUpdate.mode,
-                sceneToUpdate.temperature
+                sceneToUpdate.temperature,
+                point
             );
             
             onScenesChange(prev => prev.map((scene, index) =>
@@ -264,20 +310,16 @@ const Step3SceneGeneration: React.FC<Step3SceneGenerationProps> = ({
                 const image = imageRef.current;
                 if (!image) throw new Error('Image not available');
                 
-                const scaleX = image.naturalWidth / image.clientWidth;
-                const scaleY = image.naturalHeight / image.clientHeight;
-                const scaledX = point.x * scaleX;
-                const scaledY = point.y * scaleY;
-                
                 const sceneUrl = await generateInteriorScene(
                     finalPlanImage,
-                    scaledX,
-                    scaledY,
+                    point.u * image.naturalWidth,
+                    point.v * image.naturalHeight,
                     style,
                     index + 1,
                     { rotation: 0, tilt: 0, zoom: 1 },
                     lightingMode,
-                    colorTemperature
+                    colorTemperature,
+                    point
                 );
                 
                 onScenesChange(prev => prev.map((scene, i) => 
@@ -346,7 +388,7 @@ const Step3SceneGeneration: React.FC<Step3SceneGenerationProps> = ({
 
     useEffect(() => {
         drawPoints();
-    }, [scenePoints, finalPlanImage]);
+    }, [scenePoints, finalPlanImage, dragNow]);
 
     return (
         <div className="w-full max-w-6xl mx-auto">
@@ -368,7 +410,10 @@ const Step3SceneGeneration: React.FC<Step3SceneGenerationProps> = ({
                 <canvas
                     ref={canvasRef}
                     className="absolute top-0 left-0 cursor-pointer"
-                    onClick={addScenePoint}
+                    onMouseDown={startScenePoint}
+                    onMouseMove={moveScenePoint}
+                    onMouseUp={finishScenePoint}
+                    onMouseLeave={() => { dragStart.current = null; setDragNow(null); }}
                 />
             </div>
 

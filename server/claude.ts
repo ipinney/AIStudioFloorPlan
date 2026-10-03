@@ -11,6 +11,7 @@ import {
     InterviewTurnSchema, briefToText,
     type DesignBrief, type InterviewMessage, type InterviewTurn,
 } from '../shared/brief';
+import { PlanGeometrySchema, tidyGeometry, type PlanGeometry } from '../shared/geometry';
 
 const MODEL = process.env.CLAUDE_MODEL || 'claude-opus-5-5';
 
@@ -34,10 +35,11 @@ async function structured<T extends z.ZodType>(opts: {
     system: string;
     messages: Anthropic.Beta.BetaMessageParam[];
     effort?: 'low' | 'medium' | 'high';
+    maxTokens?: number;
 }): Promise<z.infer<T>> {
     const response = await client.beta.messages.parse({
         model: MODEL,
-        max_tokens: 16000,
+        max_tokens: opts.maxTokens ?? 16000,
         betas: ['server-side-fallback-2026-07-01'],
         fallbacks: 'default',
         cache_control: { type: 'ephemeral' },
@@ -102,7 +104,7 @@ const SCENE_WRITER_SYSTEM = `You write prompts for Qwen-Image, a text-to-image m
 
 const EDIT_WRITER_SYSTEM = `You write instructions for Qwen-Image-Edit, an instruction-following image editor that receives the image(s) and your text. Write imperative edit instructions ("Convert…", "Replace…", "Add…"), say explicitly what must stay unchanged (camera angle, walls, windows, doors, layout), and be concrete about materials, colors and furniture. Refer to input images as "image 1" and "image 2". Never ask for text, labels or watermarks.`;
 
-export async function planRenderingPrompt(planImage: string, brief: DesignBrief | null, instruction?: string): Promise<string> {
+export async function planRenderingPrompt(planImage: string, brief: DesignBrief | null, instruction?: string, layout?: string): Promise<string> {
     const result = await structured({
         schema: ImagePromptSchema,
         system: EDIT_WRITER_SYSTEM,
@@ -116,7 +118,7 @@ export async function planRenderingPrompt(planImage: string, brief: DesignBrief 
                         ? `This image (image 1) is a floor plan rendering. Write an edit instruction that applies this requested change while keeping every other wall, opening and room exactly where it is: ${instruction}
 ${brief ? `Design brief:\n${briefToText(brief)}` : ''}`
                         : `Write an edit instruction that converts this floor plan (image 1) into a clean top-down 3D architectural visualization: orthographic bird's-eye view, roof removed, matte white walls with visible thickness, soft ambient occlusion, realistic flooring per room, furniture seen from above. All text, dimensions, labels and annotations removed. Every wall, door swing, window and room boundary stays exactly where it is. Name the rooms you can identify and say how to furnish each one for this household.
-${brief ? `Design brief:\n${briefToText(brief)}` : ''}`,
+${layout ? `Measured room layout (checked by the homeowner; keep each room where it is):\n${layout}\n` : ''}${brief ? `Design brief:\n${briefToText(brief)}` : ''}`,
                 },
             ],
         }],
@@ -132,6 +134,7 @@ export async function scenePrompt(opts: {
     camera: { rotation: number; tilt: number; zoom: number };
     mode: 'day' | 'night';
     temperature: number;
+    viewFacts?: string;
 }): Promise<string> {
     const { camera } = opts;
     const result = await structured({
@@ -144,7 +147,7 @@ export async function scenePrompt(opts: {
                 imageBlock(opts.markedPlan),
                 {
                     type: 'text', text: `A person stands at the red marker numbered ${opts.viewIndex} on this floor plan, eye level (1.6 m), looking toward the most interesting part of the room${camera.rotation ? `, then turned ${Math.abs(camera.rotation)}° to the ${camera.rotation > 0 ? 'right' : 'left'}` : ''}${camera.tilt ? `, camera tilted ${Math.abs(camera.tilt)}° ${camera.tilt > 0 ? 'up' : 'down'}` : ''}${camera.zoom > 1 ? ', tighter framing' : camera.zoom < 1 ? ', wide-angle framing' : ''}.
-First work out which room they are in, which walls, windows and doors are in front of them and roughly how far away, then write a prompt for a photorealistic interior photograph of exactly that view.
+${opts.viewFacts ? `Measured from the checked plan geometry (trust this over your reading of the image; directions are relative to where the camera faces): ${opts.viewFacts}\n` : ''}First work out which room they are in, which walls, windows and doors are in front of them and roughly how far away, then write a prompt for a photorealistic interior photograph of exactly that view.
 Style: ${opts.style || opts.brief?.aesthetic.style || 'warm contemporary'}.
 Lighting: ${opts.mode === 'day' ? `daylight through the windows, about ${opts.temperature}K` : `night, windows dark, warm lamps and recessed lights about ${opts.temperature}K, high contrast`}.
 ${opts.brief ? `Design brief:\n${briefToText(opts.brief)}` : ''}`,
@@ -173,6 +176,36 @@ Write one edit instruction. Keep the camera angle, room architecture and everyth
     });
     const result = await structured({ schema: ImagePromptSchema, system: EDIT_WRITER_SYSTEM, effort: 'low', messages: [{ role: 'user', content }] });
     return result.prompt;
+}
+
+// --- Reading the plan into geometry -------------------------------------------
+
+const GEOMETRY_SYSTEM = `You are an architectural drafter digitizing a residential floor plan into vector geometry. The image has a labelled pixel grid drawn over it; use the grid labels to read coordinates precisely. Coordinates are pixels in the original image, origin top-left, y pointing down.
+
+Rules:
+- Walls are straight segments along wall centerlines. Split a wall wherever another wall meets it, so endpoints coincide at junctions and corners. Mark exterior walls.
+- Openings sit on a wall: give the wallId, t (0 at wall.a to 1 at wall.b, the opening's center), and width in pixels. A door gap with a swing arc is a door; a thin double/triple line in a wall is a window; a gap with no swing is an opening.
+- Rooms are closed polygons along the wall centerlines. Name them as a homeowner would. Use printed labels when present; otherwise infer from fixtures (toilet → bathroom, bed → bedroom).
+- Furniture: read drawn symbols (beds, sofas, tables, kitchen counters, toilets, tubs, wardrobes). Give center, size and rotation. Do not invent furniture that is not drawn.
+- Scale: if dimensions are printed (e.g. "4.2m", "12'-6\""), compute metersPerPixel and set source "dimension-text". Otherwise null with source "estimated".
+- Ids: w1, w2… for walls, o1… openings, r1… rooms, f1… furniture.
+- Put anything you are unsure about in notes, in plain language for a homeowner.`;
+
+export async function extractGeometry(gridImage: string, width: number, height: number): Promise<PlanGeometry> {
+    const raw = await structured({
+        schema: PlanGeometrySchema,
+        system: GEOMETRY_SYSTEM,
+        effort: 'high',
+        maxTokens: 32000,
+        messages: [{
+            role: 'user',
+            content: [
+                imageBlock(gridImage),
+                { type: 'text', text: `The plan image is ${width} × ${height} pixels. Digitize it. Set image to {"width": ${width}, "height": ${height}}.` },
+            ],
+        }],
+    });
+    return tidyGeometry({ ...raw, image: { width, height } });
 }
 
 // --- Short text helpers ------------------------------------------------------

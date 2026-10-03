@@ -24,9 +24,11 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@types/express": "^5.0.6",
     "@types/node": "^22.14.0",
     "concurrently": "^10.0.5",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
