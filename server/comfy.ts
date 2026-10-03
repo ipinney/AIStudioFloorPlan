@@ -125,8 +125,6 @@ export async function editImage(opts: {
     instruction: string;
     mask?: string;
     reference?: string;
-    /** Output size for a new picture conditioned on the image (e.g. an eye-level view of a plan). */
-    size?: { width: number; height: number };
 }): Promise<string> {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const imageName = await uploadImage(opts.image, `in-${id}`);
@@ -166,14 +164,6 @@ export async function editImage(opts: {
             },
             save: { class_type: 'SaveImage', inputs: { images: ['composite', 0], filename_prefix: 'floorplan/out' } },
         });
-    } else if (opts.size) {
-        const snap = (n: number) => Math.max(256, Math.round(n / 16) * 16);
-        Object.assign(wf, {
-            latent: { class_type: 'EmptySD3LatentImage', inputs: { width: snap(opts.size.width), height: snap(opts.size.height), batch_size: 1 } },
-            sample: sampler(['norm', 0], ['latent', 0]),
-            save: { class_type: 'SaveImage', inputs: { images: ['decode', 0], filename_prefix: 'floorplan/out' } },
-        });
-        delete wf.encoded;
     } else {
         Object.assign(wf, {
             sample: sampler(['norm', 0], ['encoded', 0]),
