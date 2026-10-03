@@ -178,11 +178,11 @@ def main():
     sc.render.engine = 'CYCLES'
     device = use_gpu()
     sc.cycles.samples = job.get('samples', 96)
-    sc.cycles.use_denoising = True
-    try:
+    # Some distro builds (spark's arm64 Blender 4.0) ship without OpenImageDenoise;
+    # the Qwen-Edit finishing pass cleans residual noise either way.
+    sc.cycles.use_denoising = bool(getattr(bpy.app.build_options, 'openimagedenoise', False))
+    if sc.cycles.use_denoising:
         sc.cycles.denoiser = 'OPENIMAGEDENOISE'
-    except TypeError:
-        pass
     sc.cycles.max_bounces = 6
     sc.view_settings.view_transform = 'AgX' if 'AgX' in [i.identifier for i in sc.view_settings.bl_rna.properties['view_transform'].enum_items] else 'Filmic'
     sc.render.image_settings.file_format = 'PNG'
