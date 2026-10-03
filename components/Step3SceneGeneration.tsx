@@ -2,12 +2,16 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Suspense, lazy } from 'react';
 import { generateInteriorScene, suggestInteriorStyle, suggestStyleIdeas } from '../services/api';
 // FIX: Corrected import path for i18n module.
 import { Language, getTranslation } from '../lib/i18n';
 import JSZip from 'jszip';
 import InteractiveSceneModal from './InteractiveSceneModal';
+import type { PlanGeometry } from '../shared/geometry';
+
+// three.js is large; load it only when the 3D view opens.
+const Walkthrough3D = lazy(() => import('./Walkthrough3D'));
 
 /**
  * A viewpoint in normalized plan coordinates (0..1 across the image), so the
@@ -46,6 +50,7 @@ interface Step3SceneGenerationProps {
     onScenesChange: React.Dispatch<React.SetStateAction<GeneratedScene[]>>;
     scenePoints: ScenePoint[];
     onScenePointsChange: React.Dispatch<React.SetStateAction<ScenePoint[]>>;
+    geometry: PlanGeometry | null;
 }
 
 const styleEmojis = ['🎨', '🛋️', '🖼️', '🪴', '💡', '🏺'];
@@ -58,8 +63,10 @@ const Step3SceneGeneration: React.FC<Step3SceneGenerationProps> = ({
     scenes,
     onScenesChange,
     scenePoints,
-    onScenePointsChange
+    onScenePointsChange,
+    geometry
 }) => {
+    const [view, setView] = useState<'plan' | '3d'>('plan');
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSuggestingStyle, setIsSuggestingStyle] = useState(false);
     const [selectedSceneIndex, setSelectedSceneIndex] = useState<number | null>(null);
@@ -103,7 +110,8 @@ const Step3SceneGeneration: React.FC<Step3SceneGenerationProps> = ({
             if (image.clientWidth > 0) {
                 canvas.width = image.clientWidth;
                 canvas.height = image.clientHeight;
-                drawPoints();
+                // Through the ref: this observer outlives the render that created it.
+                drawPointsRef.current();
             }
         };
 
@@ -151,6 +159,7 @@ const Step3SceneGeneration: React.FC<Step3SceneGenerationProps> = ({
         onScenePointsChange(prev => [...prev, { u: start.x / canvas.width, v: start.y / canvas.height, heading }]);
     };
 
+    const drawPointsRef = useRef<() => void>(() => {});
     const drawPoints = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -386,6 +395,7 @@ const Step3SceneGeneration: React.FC<Step3SceneGenerationProps> = ({
         }
     };
 
+    drawPointsRef.current = drawPoints;
     useEffect(() => {
         drawPoints();
     }, [scenePoints, finalPlanImage, dragNow]);
@@ -399,7 +409,34 @@ const Step3SceneGeneration: React.FC<Step3SceneGenerationProps> = ({
                 {getTranslation('step3Description', language)}
             </p>
             
-            <div className="w-full max-w-3xl mx-auto mb-6 relative border-2 border-slate-300 rounded-lg overflow-hidden">
+            {geometry && (
+                <div className="flex justify-center gap-2 mb-3">
+                    {(['plan', '3d'] as const).map(v => (
+                        <button key={v} onClick={() => setView(v)}
+                            className={`px-4 py-1.5 text-sm rounded-md border ${view === v ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-300'}`}>
+                            {getTranslation(v === 'plan' ? 'viewPlan' : 'view3d', language)}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {geometry && view === '3d' && (
+                <div className="w-full max-w-5xl mx-auto mb-6">
+                    <Suspense fallback={<div className="h-[60vh] flex items-center justify-center text-slate-400">{getTranslation('loading3d', language)}</div>}>
+                        <Walkthrough3D
+                            geometry={geometry}
+                            scenePoints={scenePoints}
+                            language={language}
+                            onAddViewpoint={p => {
+                                if (scenePoints.length >= 8) { alert(getTranslation('maxViewpointsAlert', language)); return; }
+                                onScenePointsChange(prev => [...prev, p]);
+                            }}
+                        />
+                    </Suspense>
+                </div>
+            )}
+
+            <div className={`w-full max-w-3xl mx-auto mb-6 relative border-2 border-slate-300 rounded-lg overflow-hidden ${geometry && view === '3d' ? 'hidden' : ''}`}>
                 <img 
                     ref={imageRef}
                     src={finalPlanImage} 

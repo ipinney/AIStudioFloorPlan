@@ -244,6 +244,7 @@ function App() {
                                 onScenesChange={setGeneratedScenes}
                                 scenePoints={scenePoints}
                                 onScenePointsChange={setScenePoints}
+                                geometry={geometry}
                             />
                         )}
 

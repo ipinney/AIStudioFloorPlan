@@ -91,6 +91,17 @@ const translations = {
     roomSchedule: { en: 'Rooms', zh: '房間面積' },
     pleaseCheck: { en: 'Please check', zh: '請確認' },
 
+    // Walkthrough3D.tsx
+    viewPlan: { en: 'Plan', zh: '平面' },
+    view3d: { en: '3D walkthrough', zh: '3D 漫遊' },
+    loading3d: { en: 'Loading 3D…', zh: '載入 3D…' },
+    view3dOrbit: { en: 'Orbit', zh: '環繞' },
+    view3dWalk: { en: 'Walk', zh: '步行' },
+    dropViewpoint: { en: 'Drop viewpoint here (V)', zh: '在此設定視角 (V)' },
+    orbitHint: { en: 'Drag to orbit, scroll to zoom. Switch to Walk to stand in a room and set viewpoints.', zh: '拖曳環繞、滾輪縮放。切換到步行模式即可站在房間內設定視角。' },
+    walkHint: { en: 'Click the view to look around.', zh: '點擊畫面以環顧四周。' },
+    walkHintLocked: { en: 'Mouse to look, WASD to move, Shift to hurry, V to drop a viewpoint, Esc to release.', zh: '滑鼠環顧、WASD 移動、Shift 加速、V 設定視角、Esc 離開。' },
+
     // Step2Rendering.tsx
     step2Title: { en: 'Step 4: Clean & Render Floor Plan', zh: '步驟 4：清理並渲染平面圖' },
     step2Description: { en: 'The AI will remove text and annotations, then create a clean 3D top-down rendering. You can make corrections if needed.', zh: 'AI 將移除文字和標註，並生成乾淨的 3D 俯視渲染圖。如果需要，您可以進行修正。' },
