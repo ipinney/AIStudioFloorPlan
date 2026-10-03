@@ -27,8 +27,11 @@ def to_b(v):
 
 
 def hex_rgba(h):
+    """CSS hex (sRGB) to Blender's linear RGBA."""
     h = h.lstrip('#')
-    return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)) + (1.0,)
+    def lin(c):
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    return tuple(lin(int(h[i:i + 2], 16) / 255) for i in (0, 2, 4)) + (1.0,)
 
 
 def kelvin_rgb(k):
