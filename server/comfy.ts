@@ -11,7 +11,21 @@
 // Both run with the 8-step Lightning LoRAs. COMFY_URL must be reachable from
 // wherever this server runs; on spark itself that is the default.
 
+import fs from 'fs/promises';
+import path from 'path';
+
 const COMFY_URL = (process.env.COMFY_URL || 'http://127.0.0.1:8188').replace(/\/$/, '');
+// When this server shares a disk with ComfyUI, set COMFY_DIR so each job's
+// uploads and outputs (homeowners' plans and photos) are deleted afterwards.
+const COMFY_DIR = process.env.COMFY_DIR;
+
+async function removeComfyFile(kind: 'input' | 'output', relPath: string) {
+    if (!COMFY_DIR) return;
+    const base = path.resolve(COMFY_DIR, kind);
+    const file = path.resolve(base, relPath);
+    if (!file.startsWith(base + path.sep)) return;
+    await fs.rm(file, { force: true }).catch(() => undefined);
+}
 const JOB_TIMEOUT_MS = Number(process.env.COMFY_TIMEOUT_MS || 15 * 60 * 1000);
 
 const MODELS = {
@@ -74,7 +88,9 @@ async function runWorkflow(workflow: Workflow): Promise<string> {
             const params = new URLSearchParams({ filename: image.filename, subfolder: image.subfolder, type: image.type });
             const img = await fetch(`${COMFY_URL}/view?${params}`);
             if (!img.ok) throw new Error(`Could not fetch ComfyUI output: ${img.status}`);
-            return `data:image/png;base64,${Buffer.from(await img.arrayBuffer()).toString('base64')}`;
+            const dataUrl = `data:image/png;base64,${Buffer.from(await img.arrayBuffer()).toString('base64')}`;
+            await removeComfyFile('output', path.join(image.subfolder || '', image.filename));
+            return dataUrl;
         }
         if (entry.status?.completed) throw new Error('ComfyUI job finished without an image');
     }
@@ -170,7 +186,14 @@ export async function editImage(opts: {
             save: { class_type: 'SaveImage', inputs: { images: ['decode', 0], filename_prefix: 'floorplan/out' } },
         });
     }
-    return runWorkflow(wf);
+    try {
+        return await runWorkflow(wf);
+    } finally {
+        const uploads = Object.values(wf)
+            .filter(n => n.class_type === 'LoadImage' || n.class_type === 'LoadImageMask')
+            .map(n => String(n.inputs.image));
+        await Promise.all(uploads.map(u => removeComfyFile('input', u)));
+    }
 }
 
 export async function comfyHealth(): Promise<boolean> {
