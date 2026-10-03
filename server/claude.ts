@@ -178,6 +178,50 @@ Write one edit instruction. Keep the camera angle, room architecture and everyth
     return result.prompt;
 }
 
+// --- Finishing Blender renders ---------------------------------------------------
+
+/**
+ * Edit instruction that turns a plain Cycles render of the checked geometry into
+ * a finished image. The render fixes the camera and the architecture; this only
+ * decides materials, furniture styling and light.
+ */
+export async function finishRenderPrompt(opts: {
+    render: string;
+    kind: 'eye' | 'top';
+    style: string;
+    brief: DesignBrief | null;
+    viewFacts?: string;
+    layout?: string;
+    mode: 'day' | 'night';
+    temperature: number;
+}): Promise<string> {
+    const what = opts.kind === 'eye'
+        ? 'a plain 3D massing render of a room at eye level. Grey and white blocks stand in for furniture; glass panes are windows.'
+        : 'a plain top-down 3D render of the home with the roof removed. Blocks stand in for furniture.';
+    const goal = opts.kind === 'eye'
+        ? 'Turn it into a photorealistic interior photograph.'
+        : 'Turn it into a polished top-down architectural visualization, still viewed straight down.';
+    const result = await structured({
+        schema: ImagePromptSchema,
+        system: EDIT_WRITER_SYSTEM,
+        effort: 'medium',
+        messages: [{
+            role: 'user',
+            content: [
+                imageBlock(opts.render),
+                {
+                    type: 'text', text: `Image 1 is ${what} ${goal}
+Write one edit instruction. It must keep the camera, every wall, window, door opening and the position and size of every furniture block exactly as they are; say what each visible block becomes, using the facts below. Then set materials, decor and light.
+Style: ${opts.style || opts.brief?.aesthetic.style || 'warm contemporary'}.
+Lighting: ${opts.mode === 'day' ? `daylight through the windows, about ${opts.temperature}K` : `night, windows dark, warm lamps and recessed lights about ${opts.temperature}K`}.
+${opts.viewFacts ? `What the camera sees (measured): ${opts.viewFacts}\n` : ''}${opts.layout ? `Rooms (measured):\n${opts.layout}\n` : ''}${opts.brief ? `Design brief:\n${briefToText(opts.brief)}\n` : ''}${opts.kind === 'eye' ? 'End with: "The room is unoccupied, no people."' : 'No text or labels.'}`,
+                },
+            ],
+        }],
+    });
+    return result.prompt;
+}
+
 // --- Reading the plan into geometry -------------------------------------------
 
 const GEOMETRY_SYSTEM = `You are an architectural drafter digitizing a residential floor plan into vector geometry. The image has a labelled pixel grid drawn over it; use the grid labels to read coordinates precisely. Coordinates are pixels in the original image, origin top-left, y pointing down.

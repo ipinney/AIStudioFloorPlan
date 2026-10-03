@@ -140,10 +140,17 @@ def add_camera(shot, scene3d):
     cam = bpy.data.objects.new(shot['name'], cam_data)
     bpy.context.collection.objects.link(cam)
     if shot['kind'] == 'top':
-        (x0, z0), (x1, z1) = scene3d['bounds']['min'], scene3d['bounds']['max']
+        # An explicit frame (the plan image's extent) keeps the render pixel-aligned
+        # with the uploaded plan; otherwise frame the walls with a small margin.
+        if 'frame' in shot:
+            (x0, z0), (x1, z1) = shot['frame']['min'], shot['frame']['max']
+            margin = 1.0
+        else:
+            (x0, z0), (x1, z1) = scene3d['bounds']['min'], scene3d['bounds']['max']
+            margin = 1.06
         cam_data.type = 'ORTHO'
         aspect = shot['width'] / shot['height']
-        w, d = (x1 - x0) * 1.06, (z1 - z0) * 1.06
+        w, d = (x1 - x0) * margin, (z1 - z0) * margin
         cam_data.ortho_scale = max(w, d * aspect)
         cam.location = ((x0 + x1) / 2, -(z0 + z1) / 2, 30)
         cam.rotation_euler = (0, 0, 0)

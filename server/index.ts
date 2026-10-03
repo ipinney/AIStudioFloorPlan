@@ -9,7 +9,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import * as claude from './claude';
 import { comfyHealth, editImage, textToImage } from './comfy';
-import { describeView, layoutToText, type PlanGeometry } from '../shared/geometry';
+import { describeView, layoutToText, metersPerPixel, roomAt, type PlanGeometry } from '../shared/geometry';
+import { buildScene, cameraFor, defaultHeading } from '../shared/scene3d';
+import { blenderAvailable, renderShots } from './blender';
 
 const app = express();
 app.use(express.json({ limit: '60mb' }));
@@ -24,7 +26,7 @@ const route = (handler: (body: any) => Promise<unknown>) => async (req: Request,
 };
 
 app.get('/api/health', async (_req, res) => {
-    res.json({ ok: true, comfy: await comfyHealth(), claude: Boolean(process.env.ANTHROPIC_API_KEY) });
+    res.json({ ok: true, comfy: await comfyHealth(), blender: await blenderAvailable(), claude: Boolean(process.env.ANTHROPIC_API_KEY) });
 });
 
 app.post('/api/interview', route(body =>
@@ -35,6 +37,28 @@ app.post('/api/interview', route(body =>
 app.post('/api/render-plan', route(async body => {
     const count = Math.min(Math.max(Number(body.count) || 1, 1), 4);
     const geometry: PlanGeometry | null = body.geometry ?? null;
+
+    // With checked geometry, a fresh render starts from an exact Cycles top view
+    // framed to the uploaded plan, so rooms cannot drift.
+    if (geometry && !body.instruction && !body.mask && await blenderAvailable()) {
+        const mpp = metersPerPixel(geometry);
+        const { width: W, height: H } = geometry.image;
+        const scale = Math.sqrt(1_300_000 / (W * H));
+        const shot = {
+            name: 'top', kind: 'top' as const,
+            width: Math.round((W * scale) / 16) * 16, height: Math.round((H * scale) / 16) * 16,
+            frame: { min: [0, 0] as [number, number], max: [W * mpp, H * mpp] as [number, number] },
+        };
+        const { top } = await renderShots(buildScene(geometry), [shot], { mode: 'day', temperature: 5500 }, 64);
+        const prompt = await claude.finishRenderPrompt({
+            render: top, kind: 'top', style: body.brief?.aesthetic?.style ?? '', brief: body.brief ?? null,
+            layout: layoutToText(geometry), mode: 'day', temperature: 5500,
+        });
+        const images: string[] = [];
+        for (let i = 0; i < count; i++) images.push(await editImage({ image: top, instruction: prompt }));
+        return { images, prompt, base: top };
+    }
+
     const prompt = await claude.planRenderingPrompt(body.image, body.brief ?? null, body.instruction, geometry ? layoutToText(geometry) : undefined);
     const images: string[] = [];
     // Sequential: the GPU runs one job at a time anyway, and this keeps the queue fair.
@@ -49,11 +73,29 @@ app.post('/api/geometry', route(async body => ({
 })));
 
 app.post('/api/scene', route(async body => {
-    // With checked geometry and a viewpoint in plan pixels, state the view as measured facts.
     const geometry: PlanGeometry | null = body.geometry ?? null;
-    const viewFacts = geometry && body.planPoint
-        ? describeView(geometry, body.planPoint, Number(body.heading ?? 0) + Number(body.camera?.rotation ?? 0))
-        : undefined;
+    const camera = body.camera ?? { rotation: 0, tilt: 0, zoom: 1 };
+    const mode = body.mode ?? 'day', temperature = body.temperature ?? 5500;
+    // Aim: the homeowner's drag, else toward the far side of the room; then the modal's pan.
+    const heading = geometry && body.planPoint
+        ? Number(body.heading ?? defaultHeading(geometry, body.planPoint, roomAt(geometry.rooms, body.planPoint))) + Number(camera.rotation ?? 0)
+        : 0;
+    const viewFacts = geometry && body.planPoint ? describeView(geometry, body.planPoint, heading) : undefined;
+
+    // With geometry: render the true view in Blender, then restyle it with Qwen-Image-Edit.
+    if (geometry && body.planPoint && await blenderAvailable()) {
+        const fov = Math.min(100, Math.max(35, 75 / Math.max(0.5, Number(camera.zoom) || 1)));
+        const cam = cameraFor(geometry, {
+            u: body.planPoint.x / geometry.image.width, v: body.planPoint.y / geometry.image.height, heading,
+        }, fov, Number(camera.tilt) || 0);
+        const { view } = await renderShots(buildScene(geometry), [{ name: 'view', kind: 'eye', ...cam, width: 1344, height: 768 }], { mode, temperature });
+        const prompt = await claude.finishRenderPrompt({
+            render: view, kind: 'eye', style: body.style ?? '', brief: body.brief ?? null, viewFacts, mode, temperature,
+        });
+        return { image: await editImage({ image: view, instruction: prompt }), prompt, base: view };
+    }
+
+    // Without geometry: Claude imagines the view from the marked plan.
     const prompt = await claude.scenePrompt({
         viewFacts,
         markedPlan: body.markedPlan, viewIndex: body.viewIndex, brief: body.brief ?? null, style: body.style ?? '',
