@@ -53,6 +53,12 @@ Production: `npm run build && npm start` serves the built app and the API from o
 
 Runs as the systemd user unit `floorplan.service` on spark, bound to the Tailscale address only: `http://100.101.34.117:8790`. Put `ANTHROPIC_API_KEY` in `~/floorplan/.env.local`, then `scripts/deploy-spark.sh` pulls, builds and restarts. `GET /api/health` reports ComfyUI, Blender and the Claude key.
 
+## Hosted preview (Vercel)
+
+The frontend is deployed as the Vercel project `floorplan-wizard` (https://floorplan-wizard-ivan-pinneys-projects.vercel.app). It is a static build with `VITE_API_BASE=https://spark.barrioenergy.com/floorplan`; Vultr's nginx forwards `/floorplan/` to the spark API over Tailscale.
+
+Access is a shared password: spark's API rejects every call without `Authorization: Bearer $APP_PASSWORD` (set in `~/floorplan/.env.local` on spark), and the app asks for it once per browser. `CORS_ORIGIN_PATTERN` there allows the Vercel origins. To change the password, edit `.env.local` and restart `floorplan.service`.
+
 ## Timing (spark GB10)
 
 - Blender/Cycles: about 15 s for a few shots at 64 samples.
