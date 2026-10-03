@@ -22,15 +22,39 @@ export function setActiveGeometry(geometry: PlanGeometry | null) {
     activeGeometry = geometry;
 }
 
+// Where the API lives. Empty = same origin (spark, or the Vite dev proxy); the
+// Vercel build points this at the spark API published through Vultr.
+const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, '') ?? '';
+const PASSWORD_KEY = 'floorplan-password';
+
+export function getPassword(): string {
+    try { return localStorage.getItem(PASSWORD_KEY) ?? ''; } catch { return ''; }
+}
+export function setPassword(value: string) {
+    try { localStorage.setItem(PASSWORD_KEY, value); } catch { /* private mode: session only */ }
+    sessionPassword = value;
+}
+let sessionPassword = getPassword();
+
+/** Fired when the API rejects the password, so the app can show the gate again. */
+export const AUTH_REQUIRED_EVENT = 'floorplan-auth-required';
+
 async function post<T>(path: string, body: unknown): Promise<T> {
-    const res = await fetch(`/api/${path}`, {
+    const res = await fetch(`${API_BASE}/api/${path}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionPassword}` },
         body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
     if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
     return data as T;
+}
+
+/** True when the API accepts the given password. */
+export async function checkPassword(value: string): Promise<boolean> {
+    const res = await fetch(`${API_BASE}/api/auth`, { method: 'POST', headers: { Authorization: `Bearer ${value}` } });
+    return res.ok;
 }
 
 /** Any image source (URL or data URL) → PNG/JPEG data URL. */

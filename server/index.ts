@@ -6,6 +6,7 @@
 // built frontend in production. Run with `npm run server` (dev) or `npm start`.
 import express, { type Request, type Response } from 'express';
 import path from 'path';
+import { timingSafeEqual } from 'crypto';
 import { fileURLToPath } from 'url';
 import * as claude from './claude';
 import { comfyHealth, editImage, textToImage } from './comfy';
@@ -15,6 +16,37 @@ import { blenderAvailable, renderShots } from './blender';
 
 const app = express();
 app.use(express.json({ limit: '60mb' }));
+
+// --- Access: CORS for the Vercel-hosted frontend, and a shared password ------
+// CORS_ORIGINS: comma-separated exact origins; CORS_ORIGIN_PATTERN: a regex for
+// preview URLs. APP_PASSWORD: when set, every /api call except /api/health must
+// send "Authorization: Bearer <password>".
+const corsOrigins = (process.env.CORS_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
+const corsPattern = process.env.CORS_ORIGIN_PATTERN ? new RegExp(process.env.CORS_ORIGIN_PATTERN) : null;
+const password = process.env.APP_PASSWORD || '';
+
+function passwordMatches(header: string | undefined): boolean {
+    if (!password) return true;
+    const given = Buffer.from((header || '').replace(/^Bearer\s+/i, ''));
+    const want = Buffer.from(password);
+    return given.length === want.length && timingSafeEqual(given, want);
+}
+
+app.use('/api', (req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && (corsOrigins.includes(origin) || corsPattern?.test(origin))) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Vary', 'Origin');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Max-Age', '600');
+    }
+    if (req.method === 'OPTIONS') { res.sendStatus(204); return; }
+    if (req.path === '/health' || passwordMatches(req.headers.authorization)) { next(); return; }
+    res.status(401).json({ error: 'Password required' });
+});
+
+app.post('/api/auth', (_req, res) => { res.json({ ok: true }); });
 
 const route = (handler: (body: any) => Promise<unknown>) => async (req: Request, res: Response) => {
     try {
