@@ -5,13 +5,16 @@ Upload a floor plan, get interviewed like you would by a residential architect, 
 ## How it works
 
 ```
-browser (Vite + React)
+browser (Vite + React + three.js)
    │  /api/*
    ▼
-API server (server/index.ts, Express)
-   ├── Claude: the architect interview, reading the plan, writing image prompts, presentation copy
-   └── spark ComfyUI: Qwen-Image-Edit 2511 (plan render, scene edits, add-an-object)
-                      Qwen-Image 2512 (eye-level scenes), both with 8-step Lightning LoRAs
+API server (server/index.ts, Express), runs on spark
+   ├── Claude: architect interview, reading the plan into geometry,
+   │           image instructions, presentation copy
+   ├── Blender 4 / Cycles (CUDA on the GB10): true eye-level and top-down
+   │           renders of the checked geometry
+   └── ComfyUI: Qwen-Image-Edit 2511 restyles those renders (and does mask
+               edits / add-an-object); Qwen-Image 2512 only as a no-geometry fallback
 ```
 
 No API keys are shipped to the browser.
@@ -19,11 +22,12 @@ No API keys are shipped to the browser.
 | Step | What happens |
 | --- | --- |
 | 1. Upload | Plan is downscaled to ≤2048px client-side. |
-| 2. Interview | Claude looks at the plan and interviews the homeowner one question at a time: household, daily life, site, budget, look and feel, rooms. It flags conflicts between the plan and how they live, and keeps a live **Design Brief** (`shared/brief.ts`). Skippable. |
-| 3. Render | Claude writes an edit instruction from the plan and the brief; Qwen-Image-Edit turns the plan into a top-down 3D render. Painted-mask corrections regenerate only the painted area. |
-| 4. Scenes | Pick viewpoints; Claude works out what's visible from each one and writes the scene prompt; Qwen-Image renders it. |
-| 5. Edit | Instruction edits, mask edits, day/night, and "add this object" (the reference photo goes to Qwen-Image-Edit as image 2). |
-| 6. Presentation | Claude writes the slide copy, tied back to the brief. |
+| 2. Interview | Claude interviews the homeowner like an architect (household, daily life, site, budget, look and feel, rooms), flags plan/lifestyle conflicts, and keeps a live **Design Brief** (`shared/brief.ts`). Skippable. |
+| 3. Layout | Claude reads the plan (with a labelled pixel grid drawn on it) into walls, doors, windows, rooms and furniture (`shared/geometry.ts`). The homeowner fixes it in an SVG editor and sets the scale from a known length. Skippable, but it is what keeps rooms in place. |
+| 4. Render | With a layout: an exact Cycles top view framed to the plan, restyled by Qwen-Image-Edit. Without: Qwen-Image-Edit straight from the plan. Mask corrections regenerate only the painted area. |
+| 5. Scenes | Place and aim viewpoints on the plan, or walk the 3D model (`components/Walkthrough3D.tsx`) and drop them at eye level. With a layout each view is a real Cycles render from that camera, then restyled; the same `shared/scene3d.ts` description drives three.js and Blender, so every view agrees. |
+| 6. Edit | Instruction edits, mask edits, day/night, "add this object" (reference photo as image 2). |
+| 7. Presentation | Claude writes the slide copy, tied back to the brief. |
 
 ## Run locally
 
@@ -45,9 +49,15 @@ Production: `npm run build && npm start` serves the built app and the API from o
 
 `GET /api/health` reports whether ComfyUI is reachable and a Claude key is set.
 
-## Timing
+## Deploy (spark)
 
-Each image is one ComfyUI job on spark (about 2 minutes at 1MP with the Lightning LoRAs, longer when the model first loads or other jobs are queued). The GPU is shared with other spark workloads; jobs queue in order.
+Runs as the systemd user unit `floorplan.service` on spark, bound to the Tailscale address only: `http://100.101.34.117:8790`. Put `ANTHROPIC_API_KEY` in `~/floorplan/.env.local`, then `scripts/deploy-spark.sh` pulls, builds and restarts. `GET /api/health` reports ComfyUI, Blender and the Claude key.
+
+## Timing (spark GB10)
+
+- Blender/Cycles: about 15 s for a few shots at 64 samples.
+- Qwen-Image-Edit with the model warm: 30 to 50 s per image.
+- Switching between Qwen-Image-Edit and Qwen-Image costs about 3.5 minutes: ComfyUI runs with `--disable-fast-disk` and spark has ~28 GB RAM free, so a switch rereads 20 GB from disk. The geometry path only uses Qwen-Image-Edit, which avoids this.
 
 ## Roadmap
 
